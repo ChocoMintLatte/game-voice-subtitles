@@ -1,0 +1,7 @@
+PyQt6
+sounddevice
+numpy
+google-generativeai
+python-dotenv
+soundcard
+faster-whisper

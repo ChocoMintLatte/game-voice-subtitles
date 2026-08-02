@@ -1,0 +1,31 @@
+# Environment & Secrets (SECURITY CRITICAL)
+.env
+*.env
+*.pem
+*.key
+
+# Python & Pycache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+
+# PyInstaller / Build Output
+build/
+dist/
+*.manifest
+
+# Audio & Temporary Test Files
+*.wav
+test_*.wav
+scratch/
+
+# IDE & System Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
