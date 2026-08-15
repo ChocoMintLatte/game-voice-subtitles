@@ -1,24 +1,25 @@
 import os
 import sys
-import sounddevice as sd
+from dotenv import load_dotenv, set_key, find_dotenv
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout, QLineEdit, 
     QPushButton, QComboBox, QSlider, QProgressBar, QFormLayout,
-    QGraphicsOpacityEffect, QApplication
+    QGraphicsOpacityEffect, QApplication, QFrame
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, pyqtSlot, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QFont, QColor
 
+
 class SubtitleOverlay(QWidget):
-    # Signal to update text safely from other threads
-    text_updated = pyqtSignal(str)
-    
-    def __init__(self):
-        super().__init__()
+    """
+    Google-styled transparent, click-through, always-on-top subtitle overlay for games.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
         self.init_ui()
         
     def init_ui(self):
-        # Frameless, Always on Top, Click-through window
+        # Frameless, Always on Top, Click-through (Transparent for Input)
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint |
             Qt.WindowType.WindowStaysOnTopHint |
@@ -30,18 +31,20 @@ class SubtitleOverlay(QWidget):
         
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
         
-        # Subtitle Label
+        # Google TV / YouTube Subtitle Style Label
         self.label = QLabel("")
-        self.label.setFont(QFont("Malgun Gothic", 24, QFont.Weight.Bold))
+        self.label.setFont(QFont("Google Sans", 24, QFont.Weight.DemiBold))
         self.label.setStyleSheet("""
             QLabel {
                 color: #FFFFFF;
-                background-color: rgba(15, 15, 15, 0.75);
-                border: 1.5px solid rgba(255, 255, 255, 0.15);
-                border-radius: 12px;
-                padding: 12px 28px;
+                background-color: rgba(19, 19, 20, 0.88);
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                border-radius: 16px;
+                padding: 14px 32px;
+                line-height: 1.4;
             }
         """)
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -64,21 +67,20 @@ class SubtitleOverlay(QWidget):
         self.setGraphicsEffect(self.opacity_effect)
         self.opacity_effect.setOpacity(0.0)
         
-        # Animation config
+        # Animation config (Material Easing)
         self.animation = QPropertyAnimation(self.opacity_effect, b"opacity")
-        self.animation.setDuration(300)
-        self.animation.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        self.animation.setDuration(250)
+        self.animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
         
         # Silence/hide timer
         self.fade_timer = QTimer(self)
         self.fade_timer.setSingleShot(True)
         self.fade_timer.timeout.connect(self.fade_out)
         
-        self.text_updated.connect(self.update_subtitle)
-        
     @pyqtSlot(str)
-    def update_subtitle(self, text):
-        if not text.strip():
+    def update_subtitle(self, text: str):
+        """Displays subtitle with smooth fade in and resets the auto-hide timer."""
+        if not text or not text.strip():
             return
             
         self.label.setText(text)
@@ -88,12 +90,12 @@ class SubtitleOverlay(QWidget):
         self.fade_timer.stop()
         self.animation.stop()
         
-        # Quick fade in if not visible
+        # Quick fade in if not fully visible
         if self.opacity_effect.opacity() < 1.0:
             self.opacity_effect.setOpacity(1.0)
             self.show()
             
-        # Start display timer (5 seconds)
+        # Display duration: 5 seconds
         self.fade_timer.start(5000)
         
     def fade_out(self):
@@ -115,153 +117,266 @@ class SubtitleOverlay(QWidget):
             self.hide()
 
     @pyqtSlot(int)
-    def change_font_size(self, size):
-        self.label.setFont(QFont("Malgun Gothic", size, QFont.Weight.Bold))
+    def change_font_size(self, size: int):
+        self.label.setFont(QFont("Google Sans", size, QFont.Weight.DemiBold))
+
+
+def get_env_path() -> str:
+    """Returns reliable path to .env file whether running in dev or frozen .exe."""
+    if getattr(sys, 'frozen', False):
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_dir, ".env")
 
 
 class ControlPanel(QWidget):
-    # Signals to communicate with the main thread / capture system
-    start_requested = pyqtSignal(int, float) # (device_idx, threshold)
+    # Signals for inter-thread communication
+    start_requested = pyqtSignal(int, float)  # (device_idx, threshold)
     stop_requested = pyqtSignal()
-    api_key_saved = pyqtSignal(str)
     font_size_changed = pyqtSignal(int)
     
-    def __init__(self, stt_engine):
-        super().__init__()
+    def __init__(self, stt_engine, parent=None):
+        super().__init__(parent)
         self.stt_engine = stt_engine
         self.is_running = False
+        self.env_path = get_env_path()
         self.init_ui()
         self.load_settings()
         
     def init_ui(self):
-        self.setWindowTitle("게임 보이스 자막 오버레이 - 컨트롤 패널")
-        self.resize(480, 560)
+        self.setWindowTitle("Google AI 게임 보이스 자막 - 컨트롤 패널")
+        self.resize(500, 520)
+        
+        # Google Material 3 Dark Theme Stylesheet
         self.setStyleSheet("""
             QWidget {
-                background-color: #1A1A24;
-                color: #E2E8F0;
-                font-family: 'Malgun Gothic';
+                background-color: #131314;
+                color: #E3E3E3;
+                font-family: 'Google Sans', 'Malgun Gothic', sans-serif;
+            }
+            QFrame#card_container {
+                background-color: #1E1F20;
+                border: 1px solid #333538;
+                border-radius: 16px;
+                padding: 16px;
             }
             QLabel {
+                background-color: transparent;
                 font-size: 10pt;
+                color: #C4C7C5;
+                font-weight: 500;
+            }
+            QLabel#header_title {
+                background-color: transparent;
+                font-size: 16pt;
                 font-weight: bold;
-                color: #CBD5E1;
+                color: #E3E3E3;
+            }
+            QLabel#header_subtitle {
+                background-color: transparent;
+                font-size: 9pt;
+                color: #8E918F;
+            }
+            QLabel:disabled {
+                background-color: transparent;
+                color: #5E6266;
             }
             QLineEdit {
-                background-color: #0F172A;
-                border: 1px solid #334155;
-                border-radius: 6px;
-                padding: 8px;
-                color: #F8FAFC;
+                background-color: #131314;
+                border: 1px solid #444746;
+                border-radius: 8px;
+                padding: 9px 12px;
+                color: #E3E3E3;
                 font-size: 10pt;
+                selection-background-color: #A8C7FA;
+                selection-color: #042E6F;
             }
             QLineEdit:focus {
-                border-color: #3B82F6;
+                border: 2px solid #A8C7FA;
+                background-color: #1A1B1E;
             }
             QComboBox {
-                background-color: #0F172A;
-                border: 1px solid #334155;
-                border-radius: 6px;
-                padding: 8px;
-                color: #F8FAFC;
+                background-color: #131314;
+                border: 1px solid #444746;
+                border-radius: 8px;
+                padding: 8px 12px;
+                color: #E3E3E3;
                 font-size: 10pt;
+            }
+            QComboBox:hover {
+                border-color: #8E918F;
+            }
+            QComboBox:focus {
+                border: 2px solid #A8C7FA;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 24px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #1E1F20;
+                border: 1px solid #444746;
+                border-radius: 8px;
+                selection-background-color: #333538;
+                selection-color: #A8C7FA;
+                color: #E3E3E3;
+                padding: 4px;
+            }
+            QComboBox:disabled {
+                background-color: #18191A;
+                border: 1px solid #282A2C;
+                color: #5E6266;
             }
             QPushButton {
-                background-color: #2563EB;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 10px;
-                font-weight: bold;
-                font-size: 10pt;
+                background-color: #2D2F31;
+                color: #E3E3E3;
+                border: 1px solid #444746;
+                border-radius: 8px;
+                padding: 8px 14px;
+                font-weight: 600;
+                font-size: 9.5pt;
             }
             QPushButton:hover {
-                background-color: #3B82F6;
+                background-color: #37393B;
+                border-color: #8E918F;
             }
             QPushButton:pressed {
-                background-color: #1D4ED8;
+                background-color: #444746;
             }
             QPushButton#btn_toggle {
-                background-color: #10B981;
+                background-color: #6DD58C;
+                color: #0A3818;
+                border: none;
+                border-radius: 24px;
+                padding: 13px;
+                font-weight: bold;
+                font-size: 11pt;
             }
             QPushButton#btn_toggle:hover {
-                background-color: #34D399;
+                background-color: #81C995;
             }
             QPushButton#btn_toggle[running="true"] {
-                background-color: #EF4444;
+                background-color: #F28B82;
+                color: #601410;
             }
             QPushButton#btn_toggle[running="true"]:hover {
-                background-color: #F87171;
+                background-color: #F6AEA9;
+            }
+            QSlider {
+                background-color: transparent;
             }
             QSlider::groove:horizontal {
-                height: 6px;
-                background: #334155;
-                border-radius: 3px;
+                height: 4px;
+                background: #444746;
+                border-radius: 2px;
+            }
+            QSlider::sub-page:horizontal {
+                background: #A8C7FA;
+                border-radius: 2px;
             }
             QSlider::handle:horizontal {
-                background: #3B82F6;
+                background: #A8C7FA;
                 width: 16px;
                 height: 16px;
-                margin: -5px 0;
+                margin: -6px 0;
                 border-radius: 8px;
             }
+            QSlider::handle:horizontal:hover {
+                background: #D3E3FD;
+            }
             QProgressBar {
-                background-color: #0F172A;
-                border: 1px solid #334155;
-                border-radius: 4px;
+                background-color: #131314;
+                border: 1px solid #333538;
+                border-radius: 6px;
                 text-align: center;
-                height: 12px;
+                height: 10px;
             }
             QProgressBar::chunk {
-                background-color: #10B981;
-                border-radius: 3px;
+                background-color: #6DD58C;
+                border-radius: 5px;
             }
         """)
         
         main_layout = QVBoxLayout()
-        main_layout.setSpacing(18)
-        main_layout.setContentsMargins(24, 24, 24, 24)
+        main_layout.setSpacing(16)
+        main_layout.setContentsMargins(24, 20, 24, 24)
         self.setLayout(main_layout)
         
-        # Title
-        title_label = QLabel("게임 보이스 자막 오버레이")
-        title_label.setFont(QFont("Malgun Gothic", 18, QFont.Weight.Bold))
-        title_label.setStyleSheet("color: #3B82F6; margin-bottom: 5px;")
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_layout.addWidget(title_label)
+        # 1. Google Material Header
+        header_layout = QVBoxLayout()
+        header_layout.setSpacing(4)
         
-        # Form Layout
+        title_box = QHBoxLayout()
+        title_box.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        
+        logo_label = QLabel("✨")
+        logo_label.setFont(QFont("Google Sans", 14))
+        title_box.addWidget(logo_label)
+        
+        title_label = QLabel("Game Voice Subtitles")
+        title_label.setObjectName("header_title")
+        title_box.addWidget(title_label)
+        
+        badge_label = QLabel("Gemini Flash")
+        badge_label.setStyleSheet("""
+            background-color: #042E6F;
+            color: #D3E3FD;
+            border-radius: 6px;
+            padding: 3px 8px;
+            font-size: 8pt;
+            font-weight: bold;
+        """)
+        title_box.addWidget(badge_label)
+        title_box.addStretch()
+        
+        header_layout.addLayout(title_box)
+        
+        subtitle_label = QLabel("실시간 로컬 Whisper STT & Gemini 다국어 번역 오버레이")
+        subtitle_label.setObjectName("header_subtitle")
+        header_layout.addWidget(subtitle_label)
+        
+        main_layout.addLayout(header_layout)
+        
+        # 2. Material Card Container
+        card_frame = QFrame()
+        card_frame.setObjectName("card_container")
+        card_layout = QVBoxLayout(card_frame)
+        card_layout.setSpacing(14)
+        card_layout.setContentsMargins(16, 16, 16, 16)
+        
         form_layout = QFormLayout()
         form_layout.setSpacing(12)
+        form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
         
-        # 1. Gemini API Key Input
+        # Form 1: API Key
         self.api_key_input = QLineEdit()
         self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.api_key_input.setPlaceholderText("Google AI Studio API Key를 입력하세요")
+        self.api_key_input.setPlaceholderText("Google AI Studio API Key 입력")
         
         api_layout = QHBoxLayout()
+        api_layout.setSpacing(6)
         api_layout.addWidget(self.api_key_input)
         
         self.btn_show_key = QPushButton("보기")
-        self.btn_show_key.setFixedWidth(60)
-        self.btn_show_key.setStyleSheet("background-color: #475569; padding: 7px;")
+        self.btn_show_key.setFixedWidth(56)
         self.btn_show_key.clicked.connect(self.toggle_key_visibility)
         api_layout.addWidget(self.btn_show_key)
         
         self.btn_save_key = QPushButton("저장")
-        self.btn_save_key.setFixedWidth(60)
-        self.btn_save_key.setStyleSheet("background-color: #334155; padding: 7px;")
+        self.btn_save_key.setFixedWidth(56)
+        self.btn_save_key.setStyleSheet("background-color: #042E6F; color: #D3E3FD; border-color: #0842A0;")
         self.btn_save_key.clicked.connect(self.save_api_key)
         api_layout.addWidget(self.btn_save_key)
         
         form_layout.addRow("Gemini API Key:", api_layout)
         
-        # 2. Audio Device Selection
+        # Form 2: Audio Device Selection
         self.device_combo = QComboBox()
         self.refresh_devices()
         form_layout.addRow("오디오 장치 (출력):", self.device_combo)
         
-        # 2.5 Translation Mode & Language Selection
+        # Form 3: Translation Mode & Language Selection
         self.mode_combo = QComboBox()
         self.mode_combo.addItem("외국어만 번역 (한국어 음성 무시)", "foreign_only")
         self.mode_combo.addItem("지정한 외국어만 번역", "specific")
@@ -269,29 +384,29 @@ class ControlPanel(QWidget):
         self.mode_combo.currentIndexChanged.connect(self.update_translation_config)
         form_layout.addRow("번역 동작 모드:", self.mode_combo)
 
+        self.source_lang_label = QLabel("지정 번역 대상 언어:")
         self.source_lang_combo = QComboBox()
         for lang in ["일본어", "중국어", "영어", "스페인어", "독일어", "프랑스어", "러시아어"]:
             self.source_lang_combo.addItem(lang, lang)
         self.source_lang_combo.currentIndexChanged.connect(self.update_translation_config)
-        form_layout.addRow("지정 번역 대상 언어:", self.source_lang_combo)
+        form_layout.addRow(self.source_lang_label, self.source_lang_combo)
 
-        # 3. Sensitivity Threshold
+        # Form 4: Sensitivity Threshold
         self.threshold_slider = QSlider(Qt.Orientation.Horizontal)
         self.threshold_slider.setMinimum(1)
-        self.threshold_slider.setMaximum(100)
-        self.threshold_slider.setValue(10) # Default 10/1000 = 0.01
+        self.threshold_slider.setMaximum(50)
+        self.threshold_slider.setValue(3)  # Default 3/1000 = 0.003
         self.threshold_slider.valueChanged.connect(self.update_threshold_label)
         
-        self.threshold_label = QLabel("0.010 (민감도)")
-        self.threshold_label.setStyleSheet("font-weight: normal; color: #94A3B8;")
+        self.threshold_label = QLabel("0.003 (민감도)")
+        self.threshold_label.setStyleSheet("color: #8E918F; font-size: 9pt;")
         
         threshold_layout = QHBoxLayout()
         threshold_layout.addWidget(self.threshold_slider)
         threshold_layout.addWidget(self.threshold_label)
-        
-        form_layout.addRow("음성 감지 데시벨:", threshold_layout)
+        form_layout.addRow("음성 감지 임계값:", threshold_layout)
 
-        # 3.5 Font Size Slider
+        # Form 5: Font Size Slider
         self.font_size_slider = QSlider(Qt.Orientation.Horizontal)
         self.font_size_slider.setMinimum(16)
         self.font_size_slider.setMaximum(48)
@@ -299,15 +414,14 @@ class ControlPanel(QWidget):
         self.font_size_slider.valueChanged.connect(self.update_font_size_label)
         
         self.font_size_label = QLabel("24pt")
-        self.font_size_label.setStyleSheet("font-weight: normal; color: #94A3B8;")
+        self.font_size_label.setStyleSheet("color: #8E918F; font-size: 9pt;")
         
         font_layout = QHBoxLayout()
         font_layout.addWidget(self.font_size_slider)
         font_layout.addWidget(self.font_size_label)
-        
         form_layout.addRow("자막 글꼴 크기:", font_layout)
         
-        # 4. Audio Input Level meter (Real-time)
+        # Form 6: Audio Level Bar
         self.level_bar = QProgressBar()
         self.level_bar.setMinimum(0)
         self.level_bar.setMaximum(100)
@@ -315,40 +429,26 @@ class ControlPanel(QWidget):
         self.level_bar.setTextVisible(False)
         form_layout.addRow("스피커 출력 레벨:", self.level_bar)
         
-        main_layout.addLayout(form_layout)
+        card_layout.addLayout(form_layout)
+        main_layout.addWidget(card_frame)
 
-        # 4.5 Subtitle Size Preview Label
-        self.preview_label = QLabel("자막이 이 크기로 표시됩니다.")
-        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.preview_label.setStyleSheet("""
-            QLabel {
-                color: #FFFFFF;
-                background-color: rgba(15, 15, 15, 0.75);
-                border: 1.5px solid rgba(255, 255, 255, 0.15);
-                border-radius: 12px;
-                padding: 12px;
-                min-height: 50px;
-            }
-        """)
-        self.preview_label.setFont(QFont("Malgun Gothic", 24, QFont.Weight.Bold))
-        main_layout.addWidget(self.preview_label)
-        
-        # Status text
+        # 3. Status Text & Action Button
         self.status_label = QLabel("상태: 정지됨")
-        self.status_label.setStyleSheet("color: #94A3B8; font-weight: normal; margin-top: 5px;")
+        self.status_label.setStyleSheet("color: #8E918F; font-size: 9pt; font-weight: normal;")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(self.status_label)
         
-        # Toggle Button
+        # Material Filled Toggle Button (Start / Stop)
         self.btn_toggle = QPushButton("시작")
         self.btn_toggle.setObjectName("btn_toggle")
+        self.btn_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_toggle.setProperty("running", "false")
         self.btn_toggle.clicked.connect(self.toggle_running)
         main_layout.addWidget(self.btn_toggle)
         
-        # Level meter timer
+        # Level meter decay timer (Smooth rendering)
         self.level_timer = QTimer(self)
-        self.level_timer.timeout.connect(self.poll_level)
+        self.level_timer.timeout.connect(self.decay_level)
         self.current_level = 0
         
     def toggle_key_visibility(self):
@@ -374,15 +474,18 @@ class ControlPanel(QWidget):
         val = self.threshold_slider.value() / 1000.0
         self.threshold_label.setText(f"{val:.3f}")
         
-    def get_threshold(self):
+    def get_threshold(self) -> float:
         return self.threshold_slider.value() / 1000.0
 
     def update_translation_config(self):
         mode = self.mode_combo.currentData() or "foreign_only"
         source_lang = self.source_lang_combo.currentData() or "영어"
         
-        # Show/hide source lang combo depending on mode
-        self.source_lang_combo.setEnabled(mode == "specific")
+        # Show/hide/disable source lang combo depending on mode
+        is_specific = (mode == "specific")
+        self.source_lang_combo.setEnabled(is_specific)
+        if hasattr(self, 'source_lang_label'):
+            self.source_lang_label.setEnabled(is_specific)
         
         # Update STT Engine
         self.stt_engine.set_translation_config(mode=mode, source_lang=source_lang, target_lang="한국어")
@@ -391,75 +494,61 @@ class ControlPanel(QWidget):
         self.save_env_var("TRANSLATION_MODE", mode)
         self.save_env_var("SOURCE_LANG", source_lang)
 
-    def save_env_var(self, key, val):
-        env_path = ".env"
-        lines = []
-        found = False
-        if os.path.exists(env_path):
-            with open(env_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-            for i, line in enumerate(lines):
-                if line.strip().startswith(f"{key}="):
-                    lines[i] = f"{key}={val}\n"
-                    found = True
-                    break
-        if not found:
-            lines.append(f"{key}={val}\n")
-        with open(env_path, "w", encoding="utf-8") as f:
-            f.writelines(lines)
+    def save_env_var(self, key: str, val: str):
+        try:
+            if not os.path.exists(self.env_path):
+                with open(self.env_path, "w", encoding="utf-8") as f:
+                    f.write("")
+            set_key(self.env_path, key, str(val))
+        except Exception as e:
+            print(f"[Config Warning] 환경 변수 저장 실패 ({key}={val}): {e}")
 
     def update_font_size_label(self):
         val = self.font_size_slider.value()
         self.font_size_label.setText(f"{val}pt")
         self.font_size_changed.emit(val)
-        
-        # Update preview label font size
-        if hasattr(self, 'preview_label'):
-            self.preview_label.setFont(QFont("Malgun Gothic", val, QFont.Weight.Bold))
-        
-        self.save_env_var("FONT_SIZE", val)
+        self.save_env_var("FONT_SIZE", str(val))
 
-    @pyqtSlot(str)
-    def update_recognized_text(self, text):
-        if text.strip() and not text.startswith("[에러:"):
-            self.preview_label.setText(text)
-        
     def save_api_key(self):
         key = self.api_key_input.text().strip()
         if not key:
-            self.status_label.setText("에러: 빈 API Key는 저장할 수 없습니다.")
+            self.status_label.setText("오류: 빈 API Key는 저장할 수 없습니다.")
             return
             
         self.save_env_var("GEMINI_API_KEY", key)
         self.stt_engine.set_api_key(key)
-        self.status_label.setText("상태: API Key 저장 완료.")
+        self.status_label.setText("상태: API Key 저장 완료 ✓")
         
     def load_settings(self):
-        # Load from .env if exists
-        if os.path.exists(".env"):
-            with open(".env", "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip().startswith("GEMINI_API_KEY="):
-                        key = line.strip().split("GEMINI_API_KEY=")[1]
-                        self.api_key_input.setText(key)
-                        self.stt_engine.set_api_key(key)
-                    elif line.strip().startswith("FONT_SIZE="):
-                        try:
-                            val = int(line.strip().split("FONT_SIZE=")[1])
-                            self.font_size_slider.setValue(val)
-                            self.font_size_label.setText(f"{val}pt")
-                        except Exception:
-                            pass
-                    elif line.strip().startswith("TRANSLATION_MODE="):
-                        mode = line.strip().split("TRANSLATION_MODE=")[1]
-                        idx = self.mode_combo.findData(mode)
-                        if idx >= 0:
-                            self.mode_combo.setCurrentIndex(idx)
-                    elif line.strip().startswith("SOURCE_LANG="):
-                        lang = line.strip().split("SOURCE_LANG=")[1]
-                        idx = self.source_lang_combo.findData(lang)
-                        if idx >= 0:
-                            self.source_lang_combo.setCurrentIndex(idx)
+        load_dotenv(dotenv_path=self.env_path, override=True)
+        
+        # 1. API Key
+        key = os.getenv("GEMINI_API_KEY", "")
+        if key:
+            self.api_key_input.setText(key)
+            self.stt_engine.set_api_key(key)
+            
+        # 2. Font Size
+        font_val = os.getenv("FONT_SIZE", "24")
+        try:
+            val = int(font_val)
+            self.font_size_slider.setValue(val)
+            self.font_size_label.setText(f"{val}pt")
+        except ValueError:
+            pass
+            
+        # 3. Translation Mode
+        mode = os.getenv("TRANSLATION_MODE", "foreign_only")
+        idx = self.mode_combo.findData(mode)
+        if idx >= 0:
+            self.mode_combo.setCurrentIndex(idx)
+            
+        # 4. Source Language
+        lang = os.getenv("SOURCE_LANG", "일본어")
+        idx = self.source_lang_combo.findData(lang)
+        if idx >= 0:
+            self.source_lang_combo.setCurrentIndex(idx)
+            
         self.update_translation_config()
                         
     def toggle_running(self):
@@ -467,14 +556,14 @@ class ControlPanel(QWidget):
             # Starting
             key = self.api_key_input.text().strip()
             if not key:
-                self.status_label.setText("에러: API Key를 먼저 저장하거나 입력하세요.")
+                self.status_label.setText("오류: API Key를 먼저 저장하거나 입력하세요.")
                 return
                 
             self.is_running = True
             self.btn_toggle.setText("중지")
             self.btn_toggle.setProperty("running", "true")
-            self.btn_toggle.style().polish(self.btn_toggle) # Force style update
-            self.status_label.setText("상태: 오디오 캡처 작동 중...")
+            self.btn_toggle.style().polish(self.btn_toggle)
+            self.status_label.setText("상태: 실시간 오디오 캡처 작동 중 ●")
             
             # Start signals
             device_idx = self.device_combo.currentData()
@@ -483,8 +572,8 @@ class ControlPanel(QWidget):
             threshold = self.get_threshold()
             self.start_requested.emit(device_idx, threshold)
             
-            # Start level meter
-            self.level_timer.start(50) # 20fps
+            # Start level decay timer
+            self.level_timer.start(50)
         else:
             # Stopping
             self.is_running = False
@@ -498,19 +587,22 @@ class ControlPanel(QWidget):
             self.stop_requested.emit()
             self.level_timer.stop()
             
-    def update_audio_level(self, rms_val):
-        # Scale rms value to progress bar range (0-100)
-        # RMS is usually in [0, 1.0]. A typical speech max RMS is around 0.1 ~ 0.2.
-        # Let's multiply by 500 to scale it.
-        scaled = int(rms_val * 500)
+    @pyqtSlot(float)
+    def update_audio_level(self, rms_val: float):
+        """Thread-safe slot called via Qt Signal to update audio volume meter."""
+        scaled = int(rms_val * 1000)
         self.current_level = min(max(scaled, 0), 100)
+        self.level_bar.setValue(self.current_level)
         
-    def poll_level(self):
-        self.level_bar.setValue(int(self.current_level))
+    def decay_level(self):
         # Smoothly decay the meter level
-        self.current_level = max(0, int(self.current_level) - 10)
+        self.current_level = max(0, int(self.current_level) - 8)
+        self.level_bar.setValue(self.current_level)
+        
+    @pyqtSlot(str)
+    def show_error(self, message: str):
+        self.status_label.setText(f"오류: {message}")
         
     def closeEvent(self, event):
-        # Stop background processing when control panel closes
         self.stop_requested.emit()
         event.accept()

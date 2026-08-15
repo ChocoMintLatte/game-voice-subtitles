@@ -1,17 +1,28 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('app_icon.png', '.')]
+datas = [('app_icon.png', '.'), ('app_icon.ico', '.')]
 binaries = []
-hiddenimports = ['faster_whisper', 'ctranslate2', 'huggingface_hub', 'tokenizers', 'onnxruntime']
+hiddenimports = [
+    'faster_whisper', 'ctranslate2', 'huggingface_hub', 'tokenizers', 
+    'onnxruntime', 'scipy', 'scipy.signal', 'soundcard', 'cffi',
+    'google.generativeai', 'google.ai.generativelanguage',
+    'dotenv', 'python-dotenv'
+]
 
-for pkg in ['faster_whisper', 'ctranslate2', 'huggingface_hub', 'tokenizers']:
+# Collect all necessary packages and their dynamic libraries / data
+packages_to_collect = [
+    'faster_whisper', 'ctranslate2', 'huggingface_hub', 'tokenizers', 
+    'soundcard', 'scipy', 'nvidia.cublas', 'nvidia.cudnn', 'nvidia.cuda_nvrtc'
+]
+
+for pkg in packages_to_collect:
     try:
         tmp_datas, tmp_binaries, tmp_hidden = collect_all(pkg)
         datas += tmp_datas
         binaries += tmp_binaries
         hiddenimports += tmp_hidden
-    except Exception:
+    except Exception as e:
         pass
 
 a = Analysis(

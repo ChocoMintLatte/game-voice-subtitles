@@ -1,7 +1,8 @@
 PyQt6
-sounddevice
 numpy
+scipy
 google-generativeai
 python-dotenv
 soundcard
 faster-whisper
+
