@@ -5,7 +5,7 @@ datas = [('app_icon.png', '.'), ('app_icon.ico', '.')]
 binaries = []
 hiddenimports = [
     'faster_whisper', 'ctranslate2', 'huggingface_hub', 'tokenizers', 
-    'onnxruntime', 'scipy', 'scipy.signal', 'soundcard', 'cffi',
+    'onnxruntime', 'soundcard', 'cffi',
     'google.generativeai', 'google.ai.generativelanguage',
     'dotenv', 'python-dotenv'
 ]
@@ -13,7 +13,7 @@ hiddenimports = [
 # Collect all necessary packages and their dynamic libraries / data
 packages_to_collect = [
     'faster_whisper', 'ctranslate2', 'huggingface_hub', 'tokenizers', 
-    'soundcard', 'scipy', 'nvidia.cublas', 'nvidia.cudnn', 'nvidia.cuda_nvrtc'
+    'soundcard', 'nvidia.cublas', 'nvidia.cudnn', 'nvidia.cuda_nvrtc'
 ]
 
 for pkg in packages_to_collect:

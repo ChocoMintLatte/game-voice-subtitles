@@ -1,6 +1,5 @@
 PyQt6
 numpy
-scipy
 google-generativeai
 python-dotenv
 soundcard
