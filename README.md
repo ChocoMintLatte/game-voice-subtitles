@@ -35,7 +35,7 @@ Windows 환경에서 게임 플레이 중 상대방이나 팀원의 **스피커 
 > **파이썬이나 복잡한 개발 도구가 설치되어 있지 않아도 `.exe` 파일 하나만으로 바로 실행할 수 있습니다.**
 
 ### 1. 실행 파일 다운로드
-[Releases](https://github.com/ChocoMintLatte/game-voice-subtitles/releases) 페이지에서 최신 **`GameVoiceOverlay.exe`** 파일을 다운로드합니다.
+공개 배포 저장소 `game-voice-subtitles-app`의 [릴리스 페이지](https://github.com/ChocoMintLatte/game-voice-subtitles-app/releases/tag/v1.0.0)에서 **[`GameVoiceOverlay.exe`](https://github.com/ChocoMintLatte/game-voice-subtitles-app/releases/download/v1.0.0/GameVoiceOverlay.exe)** 파일을 다운로드합니다.
 
 ### 2. 프로그램 실행 및 API Key 입력
 1. 다운로드받은 `GameVoiceOverlay.exe`를 더블 클릭하여 실행합니다.
