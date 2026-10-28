@@ -1,7 +1,13 @@
-from google import genai
-import base64
 import os
 import sys
+
+_venv_site = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venv", "Lib", "site-packages")
+if not getattr(sys, "frozen", False) and os.path.isdir(_venv_site) and _venv_site not in sys.path:
+    sys.path.insert(0, _venv_site)
+    sys.modules.pop("google", None)
+
+from google import genai
+import base64
 import io
 import time
 import re
@@ -23,7 +29,7 @@ load_dotenv(dotenv_path=get_env_path(), override=True)
 # Register NVIDIA CUDA/cuBLAS/cuDNN DLL paths on Windows
 def _add_nvidia_dll_directories():
     if sys.platform == "win32":
-        bases = [b for b in (getattr(sys, '_MEIPASS', None), *site.getsitepackages(), getattr(sys, 'prefix', None)) if b]
+        bases = [b for b in (getattr(sys, '_MEIPASS', None), _venv_site, *site.getsitepackages(), getattr(sys, 'prefix', None)) if b]
         for base in bases:
             for sub in ['cublas', 'cudnn', 'cuda_nvrtc', 'cuda_runtime']:
                 dll_dir = os.path.join(base, 'nvidia', sub, 'bin')

@@ -1,7 +1,13 @@
 import sys
+import subprocess
 import queue
 import os
 from pathlib import Path
+
+_venv_python = Path(__file__).resolve().parent / "venv" / "Scripts" / "python.exe"
+if not getattr(sys, "frozen", False) and _venv_python.exists() and Path(sys.executable).resolve() != _venv_python.resolve():
+    sys.exit(subprocess.call([str(_venv_python), *sys.argv]))
+
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QObject, QThread, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QIcon
