@@ -1,7 +1,7 @@
 import os
 import sys
 from dotenv import load_dotenv, set_key
-from stt_engine import get_env_path
+from stt_engine import get_env_path, WHISPER_MODEL_OPTIONS
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout, QLineEdit, 
     QPushButton, QComboBox, QSlider, QProgressBar, QFormLayout,
@@ -101,6 +101,7 @@ class ControlPanel(QWidget):
     start_requested = pyqtSignal(int, float)  # (device_idx, threshold)
     stop_requested = pyqtSignal()
     font_size_changed = pyqtSignal(int)
+    threshold_changed = pyqtSignal(float)
     
     def __init__(self, stt_engine, parent=None):
         super().__init__(parent)
@@ -112,7 +113,7 @@ class ControlPanel(QWidget):
         
     def init_ui(self):
         self.setWindowTitle("Google AI 게임 보이스 자막 - 컨트롤 패널")
-        self.resize(500, 520)
+        self.resize(500, 560)
         
         self.setStyleSheet("""
             QWidget { background-color: #131314; color: #E3E3E3; font-family: 'Google Sans', 'Malgun Gothic', sans-serif; }
@@ -198,7 +199,14 @@ class ControlPanel(QWidget):
         api_layout.addWidget(self.btn_save_key)
         form_layout.addRow("Gemini API Key:", api_layout)
         
-        # 2. Device Selection
+        # 2. Model Selection
+        self.whisper_model_combo = QComboBox()
+        for model_id, label in WHISPER_MODEL_OPTIONS:
+            self.whisper_model_combo.addItem(label, model_id)
+        self.whisper_model_combo.currentIndexChanged.connect(self.update_whisper_model)
+        form_layout.addRow("음성 인식/번역 모델:", self.whisper_model_combo)
+
+        # 3. Device Selection
         self.device_combo = QComboBox()
         self.refresh_devices()
         form_layout.addRow("오디오 장치 (출력):", self.device_combo)
@@ -296,6 +304,13 @@ class ControlPanel(QWidget):
     def update_threshold_label(self):
         val = self.threshold_slider.value() / 1000.0
         self.threshold_label.setText(f"{val:.3f}")
+        self.threshold_changed.emit(val)
+        self.save_env_var("THRESHOLD", f"{val:.3f}")
+
+    def update_whisper_model(self):
+        model_name = self.whisper_model_combo.currentData() or "large-v3-turbo"
+        self.stt_engine.set_whisper_model(model_name)
+        self.save_env_var("WHISPER_MODEL", model_name)
 
     def update_translation_config(self):
         mode = self.mode_combo.currentData() or "foreign_only"
@@ -344,6 +359,17 @@ class ControlPanel(QWidget):
         except ValueError:
             pass
             
+        val = os.getenv("THRESHOLD", "0.003")
+        try:
+            self.threshold_slider.setValue(int(round(float(val) * 1000)))
+        except ValueError:
+            pass
+            
+        w_model = os.getenv("WHISPER_MODEL", "large-v3-turbo")
+        idx = self.whisper_model_combo.findData(w_model)
+        if idx >= 0:
+            self.whisper_model_combo.setCurrentIndex(idx)
+
         mode = os.getenv("TRANSLATION_MODE", "foreign_only")
         idx = self.mode_combo.findData(mode)
         if idx >= 0:

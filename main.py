@@ -56,7 +56,7 @@ class AppController(QObject):
         super().__init__(parent)
         
         self.stt_engine = GeminiSTTEngine()
-        self.audio_queue = queue.Queue()
+        self.audio_queue = queue.Queue(maxsize=3)
         
         self.overlay = SubtitleOverlay()
         self.control_panel = ControlPanel(self.stt_engine)
@@ -64,6 +64,7 @@ class AppController(QObject):
         self.control_panel.start_requested.connect(self.start_capture)
         self.control_panel.stop_requested.connect(self.stop_capture)
         self.control_panel.font_size_changed.connect(self.overlay.change_font_size)
+        self.control_panel.threshold_changed.connect(self.update_threshold)
         
         self.capture_thread = None
         self.worker_thread = None
@@ -106,6 +107,11 @@ class AppController(QObject):
             self.worker_thread.stop()
             self.worker_thread.wait(1000)
             self.worker_thread = None
+
+    @pyqtSlot(float)
+    def update_threshold(self, threshold: float):
+        if self.capture_thread and self.capture_thread.isRunning():
+            self.capture_thread.set_threshold(threshold)
 
 
 def main():

@@ -6,14 +6,15 @@ binaries = []
 hiddenimports = [
     'faster_whisper', 'ctranslate2', 'huggingface_hub', 'tokenizers', 
     'onnxruntime', 'soundcard', 'cffi',
-    'google.generativeai', 'google.ai.generativelanguage',
+    'google.genai',
     'dotenv', 'python-dotenv'
 ]
 
 # Collect all necessary packages and their dynamic libraries / data
 packages_to_collect = [
     'faster_whisper', 'ctranslate2', 'huggingface_hub', 'tokenizers', 
-    'soundcard', 'nvidia.cublas', 'nvidia.cudnn', 'nvidia.cuda_nvrtc'
+    'soundcard', 'nvidia.cublas', 'nvidia.cudnn', 'nvidia.cuda_nvrtc',
+    'google.genai'
 ]
 
 for pkg in packages_to_collect:

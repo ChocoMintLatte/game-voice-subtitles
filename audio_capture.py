@@ -5,7 +5,7 @@ import queue
 import wave
 import io
 import time
-from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal, pyqtSlot
 
 
 class AudioLoopbackCapture(QThread):
@@ -42,8 +42,10 @@ class AudioLoopbackCapture(QThread):
         self.is_speaking = False
         self.silence_start_time = None
         self.speech_start_time = None
-        
-        self.setup_device()
+
+    @pyqtSlot(float)
+    def set_threshold(self, value: float):
+        self.threshold = value
 
     def setup_device(self):
         """Finds and binds the appropriate WASAPI loopback capture device."""
@@ -80,7 +82,6 @@ class AudioLoopbackCapture(QThread):
         except Exception as e:
             err_msg = f"오디오 캡처 장치 설정 실패: {e}"
             print(f"[Audio Error] {err_msg}")
-            self.error_occurred.emit(err_msg)
             raise RuntimeError(err_msg)
 
     def resample_and_mono(self, audio_data: np.ndarray) -> np.ndarray:
@@ -92,6 +93,9 @@ class AudioLoopbackCapture(QThread):
         # Integer ratio downsampling (48k -> 16k is 3:1 decimation)
         if self.native_sr % self.sample_rate_target == 0:
             step = self.native_sr // self.sample_rate_target
+            trim_len = (len(mono) // step) * step
+            if trim_len > 0:
+                return mono[:trim_len].reshape(-1, step).mean(axis=1).astype(np.float32)
             return mono[::step].astype(np.float32)
             
         duration = len(mono) / self.native_sr
@@ -118,6 +122,7 @@ class AudioLoopbackCapture(QThread):
         block_size = int(self.native_sr * 0.1)  # 100ms chunks
         
         try:
+            self.setup_device()
             with self.loopback_mic.recorder(samplerate=self.native_sr, channels=self.native_channels) as recorder:
                 print(f"[Audio] 루프백 스트림 작동 시작: {self.loopback_mic.name} (감지 임계값: {self.threshold:.4f})")
                 while self.running:
@@ -141,7 +146,7 @@ class AudioLoopbackCapture(QThread):
                         if self.speech_start_time and (now - self.speech_start_time > self.max_speech_duration):
                             print("[Audio] 최대 발화 시간(3초) 도달 -> 자막 처리 중...")
                             recorded_data = np.concatenate(self.audio_buffer, axis=0)
-                            self.audio_buffer = []
+                            self.audio_buffer = self.audio_buffer[-2:]
                             self.speech_start_time = now
                             self.process_and_push(recorded_data)
                     else:
@@ -173,7 +178,12 @@ class AudioLoopbackCapture(QThread):
             audio_int16 = self.float32_to_int16(resampled)
             wav_bytes = self.create_wav_bytes(audio_int16)
             if self.output_queue is not None:
-                self.output_queue.put(wav_bytes)
+                while self.output_queue.full():
+                    try:
+                        self.output_queue.get_nowait()
+                    except queue.Empty:
+                        break
+                self.output_queue.put_nowait(wav_bytes)
         except Exception as e:
             print(f"[Audio Processing Error] {e}")
 

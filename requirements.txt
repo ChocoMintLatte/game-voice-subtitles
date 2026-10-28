@@ -1,6 +1,6 @@
 PyQt6
 numpy
-google-generativeai
+google-genai>=2.30.1
 python-dotenv
 soundcard
 faster-whisper
